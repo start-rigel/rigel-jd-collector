@@ -22,7 +22,6 @@ Phase 3 MVP, now aligned more explicitly with the `daily price catalog` goal.
 
 - replaceable JD search adapter interface
 - deterministic mock JD client for local development
-- browser-worker client mode that calls `rigel-jd-browser-collector`
 - PostgreSQL persistence for `products`, `price_snapshots`, and `jobs`
 - basic dedupe through `products(source_platform, external_id)` upsert
 - smart batch collection with skip and risk-aware abort
@@ -40,10 +39,8 @@ Phase 3 MVP, now aligned more explicitly with the `daily price catalog` goal.
 ## Notes
 
 - The goal is not deep catalog completeness. The goal is reliable daily price sampling.
-- JD official API access is still unavailable, so browser collection remains a fallback path.
 - Self-operated JD records are currently preferred when available.
 
 ## TODO / MOCK
 
-- TODO: stabilize browser-based collection for the remaining categories still blocked by risk control
 - TODO: support a clearer daily sampling workflow per canonical keyword set
