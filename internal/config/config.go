@@ -8,16 +8,15 @@ import (
 
 // Config contains the runtime contract for the JD collector service.
 type Config struct {
-	ServiceName               string
-	HTTPPort                  string
-	LogLevel                  string
-	PostgresDSN               string
-	RedisAddr                 string
-	JDCollectorMode           string
-	JDBrowserCollectorBaseURL string
-	ReadTimeout               time.Duration
-	WriteTimeout              time.Duration
-	IdleTimeout               time.Duration
+	ServiceName     string
+	HTTPPort        string
+	LogLevel        string
+	PostgresDSN     string
+	RedisAddr       string
+	JDCollectorMode string
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
+	IdleTimeout     time.Duration
 }
 
 // Load reads service configuration from environment variables.
@@ -26,38 +25,33 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-
 	writeTimeout, err := durationFromEnv("RIGEL_HTTP_WRITE_TIMEOUT", 2*time.Minute)
 	if err != nil {
 		return Config{}, err
 	}
-
 	idleTimeout, err := durationFromEnv("RIGEL_HTTP_IDLE_TIMEOUT", 30*time.Second)
 	if err != nil {
 		return Config{}, err
 	}
 
 	cfg := Config{
-		ServiceName:               stringFromEnv("RIGEL_SERVICE_NAME", "rigel-jd-collector"),
-		HTTPPort:                  stringFromEnv("RIGEL_HTTP_PORT", stringFromEnv("RIGEL_JD_COLLECTOR_PORT", "8080")),
-		LogLevel:                  stringFromEnv("RIGEL_LOG_LEVEL", "info"),
-		PostgresDSN:               stringFromEnv("RIGEL_POSTGRES_DSN", ""),
-		RedisAddr:                 stringFromEnv("RIGEL_REDIS_ADDR", ""),
-		JDCollectorMode:           stringFromEnv("RIGEL_JD_COLLECTOR_MODE", "mock"),
-		JDBrowserCollectorBaseURL: stringFromEnv("RIGEL_JD_BROWSER_COLLECTOR_BASE_URL", "http://rigel-jd-browser-collector:18086"),
-		ReadTimeout:               readTimeout,
-		WriteTimeout:              writeTimeout,
-		IdleTimeout:               idleTimeout,
+		ServiceName:     stringFromEnv("RIGEL_SERVICE_NAME", "rigel-jd-collector"),
+		HTTPPort:        stringFromEnv("RIGEL_HTTP_PORT", stringFromEnv("RIGEL_JD_COLLECTOR_PORT", "8080")),
+		LogLevel:        stringFromEnv("RIGEL_LOG_LEVEL", "info"),
+		PostgresDSN:     stringFromEnv("RIGEL_POSTGRES_DSN", ""),
+		RedisAddr:       stringFromEnv("RIGEL_REDIS_ADDR", ""),
+		JDCollectorMode: stringFromEnv("RIGEL_JD_COLLECTOR_MODE", "mock"),
+		ReadTimeout:     readTimeout,
+		WriteTimeout:    writeTimeout,
+		IdleTimeout:     idleTimeout,
 	}
 
 	if cfg.HTTPPort == "" {
 		return Config{}, fmt.Errorf("RIGEL_HTTP_PORT must not be empty")
 	}
-
 	if cfg.PostgresDSN == "" {
 		return Config{}, fmt.Errorf("RIGEL_POSTGRES_DSN must not be empty")
 	}
-
 	return cfg, nil
 }
 
@@ -65,7 +59,6 @@ func stringFromEnv(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
-
 	return fallback
 }
 
@@ -74,11 +67,9 @@ func durationFromEnv(key string, fallback time.Duration) (time.Duration, error) 
 	if value == "" {
 		return fallback, nil
 	}
-
 	parsed, err := time.ParseDuration(value)
 	if err != nil {
 		return 0, fmt.Errorf("parse %s: %w", key, err)
 	}
-
 	return parsed, nil
 }

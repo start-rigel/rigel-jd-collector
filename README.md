@@ -8,7 +8,7 @@ Go
 
 ## Current Stage
 
-Phase 3 MVP, now aligned more explicitly with the `JD Union query -> raw sample storage` goal.
+Phase 3 MVP, aligned with the `JD Union query -> raw sample storage` goal.
 
 ## Intended Role
 
@@ -24,22 +24,17 @@ Phase 3 MVP, now aligned more explicitly with the `JD Union query -> raw sample 
 - local mock adapter for development before real JD Union credentials are available
 - PostgreSQL persistence for `products`, `price_snapshots`, and `jobs`
 - basic dedupe through `products(source_platform, external_id)` upsert
-- batch collection for a fixed keyword set
 
 ## Routes
 
 - `GET /healthz`
 - `POST /api/v1/collect/search`
-- `POST /api/v1/collect/batch`
 - `GET /api/v1/products`
-- `GET /api/v1/jobs`
-- `GET /api/v1/jobs/{id}`
-- `POST /api/v1/jobs/{id}/retry`
 
 ## Notes
 
 - Current scope assumes JD data should come from JD Union/OpenAPI rather than browser scraping.
-- The goal is not deep catalog completeness. The goal is reliable daily price sampling and storage.
+- The goal is reliable daily price sampling and storage.
 
 ## TODO / MOCK
 

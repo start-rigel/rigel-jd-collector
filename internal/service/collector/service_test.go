@@ -12,7 +12,6 @@ import (
 
 type memoryRepo struct {
 	job      model.Job
-	jobs     []model.Job
 	jobCount int
 	products []model.Product
 }
@@ -21,35 +20,12 @@ func (r *memoryRepo) CreateJob(_ context.Context, job model.Job) (model.Job, err
 	r.jobCount++
 	job.ID = model.ID(fmt.Sprintf("job-%d", r.jobCount))
 	r.job = job
-	r.jobs = append([]model.Job{job}, r.jobs...)
 	return job, nil
 }
 
 func (r *memoryRepo) UpdateJob(_ context.Context, job model.Job) error {
 	r.job = job
-	for index := range r.jobs {
-		if r.jobs[index].ID == job.ID {
-			r.jobs[index] = job
-			return nil
-		}
-	}
 	return nil
-}
-
-func (r *memoryRepo) GetJob(_ context.Context, jobID model.ID) (model.Job, error) {
-	for _, job := range r.jobs {
-		if job.ID == jobID {
-			return job, nil
-		}
-	}
-	return r.job, nil
-}
-
-func (r *memoryRepo) ListJobs(_ context.Context, _ int) ([]model.Job, error) {
-	if len(r.jobs) > 0 {
-		return r.jobs, nil
-	}
-	return []model.Job{r.job}, nil
 }
 
 func (r *memoryRepo) UpsertProduct(_ context.Context, product model.Product) (model.Product, error) {
@@ -113,179 +89,28 @@ func TestSearchAndStore(t *testing.T) {
 	}
 }
 
-func TestRetryJob(t *testing.T) {
-	repo := &memoryRepo{
-		jobs: []model.Job{{
-			ID:     "job-1",
-			Status: model.JobSucceeded,
-			Payload: map[string]any{
-				"keyword":  "RTX 4060",
-				"category": "GPU",
-				"brand":    "",
-				"limit":    float64(2),
-				"persist":  true,
-			},
-		}},
-		jobCount: 1,
-	}
-	service := New(repo, jdclient.NewMockClient(), func() time.Time {
-		return time.Date(2026, 3, 12, 8, 0, 0, 0, time.UTC)
-	})
-
-	response, err := service.RetryJob(context.Background(), "job-1", "mock")
-	if err != nil {
-		t.Fatalf("RetryJob() error = %v", err)
-	}
-	if response.RetriedFromJob != "job-1" {
-		t.Fatalf("expected retried_from_job_id job-1, got %s", response.RetriedFromJob)
-	}
-	if response.JobID == "" || response.JobID == "job-1" {
-		t.Fatalf("expected a new job id, got %s", response.JobID)
-	}
-}
-
-func TestSearchBatchAndStore(t *testing.T) {
-	repo := &memoryRepo{}
-	service := New(repo, jdclient.NewMockClient(), func() time.Time {
-		return time.Date(2026, 3, 12, 8, 0, 0, 0, time.UTC)
-	})
-
-	response, err := service.SearchBatchAndStore(context.Background(), []SearchRequest{
-		{Keyword: "RTX 4060", Category: "GPU", Limit: 1, Persist: true},
-		{Keyword: "Ryzen 5 7500F", Category: "CPU", Limit: 1, Persist: true},
-	}, "mock", "mvp_base", false, false)
-	if err != nil {
-		t.Fatalf("SearchBatchAndStore() error = %v", err)
-	}
-	if response.TotalJobs != 2 {
-		t.Fatalf("expected 2 jobs, got %d", response.TotalJobs)
-	}
-	if response.SuccessfulJobs != 2 {
-		t.Fatalf("expected 2 successful jobs, got %d", response.SuccessfulJobs)
-	}
-	if response.TotalPersisted != 2 {
-		t.Fatalf("expected 2 persisted records, got %d", response.TotalPersisted)
-	}
-	if len(response.Results) != 2 {
-		t.Fatalf("expected 2 results, got %d", len(response.Results))
-	}
-}
-
-func TestSearchBatchAndStoreContinueOnError(t *testing.T) {
-	repo := &memoryRepo{}
-	service := New(repo, errorClient{}, func() time.Time {
-		return time.Date(2026, 3, 12, 8, 0, 0, 0, time.UTC)
-	})
-
-	response, err := service.SearchBatchAndStore(context.Background(), []SearchRequest{
-		{Keyword: "RTX 4060", Category: "GPU", Limit: 1, Persist: true},
-		{Keyword: "Ryzen 5 7500F", Category: "CPU", Limit: 1, Persist: true},
-	}, "browser", "mvp_base", true, false)
-	if err != nil {
-		t.Fatalf("SearchBatchAndStore() error = %v", err)
-	}
-	if response.FailedJobs != 2 {
-		t.Fatalf("expected 2 failed jobs, got %d", response.FailedJobs)
-	}
-	if response.SuccessfulJobs != 0 {
-		t.Fatalf("expected 0 successful jobs, got %d", response.SuccessfulJobs)
-	}
-	if response.Results[0].Error == "" {
-		t.Fatal("expected batch result error")
-	}
-}
-
-func TestSearchBatchAndStoreSkipsExistingRealProducts(t *testing.T) {
+func TestListProductsFilters(t *testing.T) {
 	repo := &memoryRepo{
 		products: []model.Product{
-			{ID: "gpu-1", Title: "RTX 4060 官方自营", ShopType: model.ShopTypeSelfOperated, Attributes: map[string]any{"category": "GPU"}, RawPayload: map[string]any{"browser_collector_mode": "public_search"}},
+			{ID: "gpu-mock", Title: "RTX 4060 官方自营", ShopType: model.ShopTypeSelfOperated, Attributes: map[string]any{"category": "GPU"}, RawPayload: map[string]any{"mock": true}},
+			{ID: "gpu-real", Title: "NVIDIA RTX 4060 京东自营", ShopType: model.ShopTypeSelfOperated, Attributes: map[string]any{"category": "GPU"}},
 		},
 	}
-	service := New(repo, jdclient.NewMockClient(), func() time.Time {
-		return time.Date(2026, 3, 12, 8, 0, 0, 0, time.UTC)
+	service := New(repo, jdclient.NewMockClient(), nil)
+
+	products, err := service.ListProducts(context.Background(), ProductListFilter{
+		Category:         "GPU",
+		Limit:            10,
+		SelfOperatedOnly: true,
+		RealOnly:         true,
 	})
-
-	response, err := service.SearchBatchAndStore(context.Background(), []SearchRequest{
-		{Keyword: "RTX 4060", Category: "GPU", Limit: 1, Persist: true},
-	}, "browser", "mvp_base", true, true)
 	if err != nil {
-		t.Fatalf("SearchBatchAndStore() error = %v", err)
+		t.Fatalf("ListProducts() error = %v", err)
 	}
-	if len(response.Results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(response.Results))
+	if len(products) != 1 {
+		t.Fatalf("expected 1 filtered product, got %d", len(products))
 	}
-	if !response.Results[0].Skipped {
-		t.Fatal("expected existing real product to be skipped")
+	if products[0].ID != "gpu-real" {
+		t.Fatalf("expected gpu-real, got %s", products[0].ID)
 	}
-	if response.TotalJobs != 0 {
-		t.Fatalf("expected 0 executed jobs, got %d", response.TotalJobs)
-	}
-}
-
-func TestSearchBatchAndStoreAbortsRemainingRequestsAfterRiskControl(t *testing.T) {
-	repo := &memoryRepo{}
-	service := New(repo, riskClient{}, func() time.Time {
-		return time.Date(2026, 3, 12, 8, 0, 0, 0, time.UTC)
-	})
-
-	response, err := service.SearchBatchAndStore(context.Background(), []SearchRequest{
-		{Keyword: "SN770 1TB", Category: "SSD", Limit: 1, Persist: true},
-		{Keyword: "MATX 机箱", Category: "CASE", Limit: 1, Persist: true},
-		{Keyword: "AG400", Category: "COOLER", Limit: 1, Persist: true},
-	}, "browser", "mvp_base", true, false)
-	if err != nil {
-		t.Fatalf("SearchBatchAndStore() error = %v", err)
-	}
-	if response.TotalJobs != 1 {
-		t.Fatalf("expected 1 executed job before abort, got %d", response.TotalJobs)
-	}
-	if response.FailedJobs != 1 {
-		t.Fatalf("expected 1 failed job, got %d", response.FailedJobs)
-	}
-	if response.AbortedJobs != 2 {
-		t.Fatalf("expected 2 aborted jobs, got %d", response.AbortedJobs)
-	}
-	if len(response.Results) != 3 {
-		t.Fatalf("expected 3 results, got %d", len(response.Results))
-	}
-	if !response.Results[1].Aborted || !response.Results[2].Aborted {
-		t.Fatal("expected remaining requests to be marked as aborted")
-	}
-}
-
-func TestPresetRequestsPrioritizesPSUBeforeSSDUnderRisk(t *testing.T) {
-	requests, err := PresetRequests("mvp_base")
-	if err != nil {
-		t.Fatalf("PresetRequests() error = %v", err)
-	}
-
-	psuIndex := -1
-	ssdIndex := -1
-	for index, req := range requests {
-		switch req.Category {
-		case "PSU":
-			psuIndex = index
-		case "SSD":
-			ssdIndex = index
-		}
-	}
-
-	if psuIndex == -1 || ssdIndex == -1 {
-		t.Fatalf("expected both PSU and SSD requests, got psu=%d ssd=%d", psuIndex, ssdIndex)
-	}
-	if psuIndex > ssdIndex {
-		t.Fatalf("expected PSU to be attempted before SSD, got psu=%d ssd=%d", psuIndex, ssdIndex)
-	}
-}
-
-type errorClient struct{}
-
-func (errorClient) SearchProducts(_ context.Context, _ model.SearchQuery) ([]model.Product, error) {
-	return nil, fmt.Errorf("upstream failed")
-}
-
-type riskClient struct{}
-
-func (riskClient) SearchProducts(_ context.Context, _ model.SearchQuery) ([]model.Product, error) {
-	return nil, fmt.Errorf("browser collector returned status 500: {\"error\":\"jd public search was redirected to risk-control\",\"name\":\"RiskControlError\"}")
 }
