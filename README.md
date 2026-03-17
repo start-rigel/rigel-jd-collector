@@ -1,6 +1,6 @@
 # rigel-jd-collector
 
-JD collector service for daily raw product sampling and price snapshots.
+JD collector service for querying JD Union data and writing raw product/price records into PostgreSQL.
 
 ## Language
 
@@ -8,23 +8,23 @@ Go
 
 ## Current Stage
 
-Phase 3 MVP, now aligned more explicitly with the `daily price catalog` goal.
+Phase 3 MVP, now aligned more explicitly with the `JD Union query -> raw sample storage` goal.
 
 ## Intended Role
 
-- search JD by canonical-model-oriented keywords
+- call JD Union/OpenAPI search interfaces with canonical-model-oriented keywords
 - store raw product records
 - append daily price snapshots
-- provide enough data for canonical model aggregation
-- prefer only the first few useful self-operated items instead of deep paging
+- provide enough data for canonical model aggregation in `rigel-build-engine`
+- keep collector responsibility limited to query and persistence
 
 ## Implemented
 
-- replaceable JD search adapter interface
-- deterministic mock JD client for local development
+- replaceable JD Union client adapter interface
+- local mock adapter for development before real JD Union credentials are available
 - PostgreSQL persistence for `products`, `price_snapshots`, and `jobs`
 - basic dedupe through `products(source_platform, external_id)` upsert
-- smart batch collection with skip and risk-aware abort
+- batch collection for a fixed keyword set
 
 ## Routes
 
@@ -38,9 +38,10 @@ Phase 3 MVP, now aligned more explicitly with the `daily price catalog` goal.
 
 ## Notes
 
-- The goal is not deep catalog completeness. The goal is reliable daily price sampling.
-- Self-operated JD records are currently preferred when available.
+- Current scope assumes JD data should come from JD Union/OpenAPI rather than browser scraping.
+- The goal is not deep catalog completeness. The goal is reliable daily price sampling and storage.
 
 ## TODO / MOCK
 
-- TODO: support a clearer daily sampling workflow per canonical keyword set
+- TODO: wire a verified JD Union client once official credentials are available
+- MOCK: local mock adapter remains in place until JD Union access is configured
