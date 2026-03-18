@@ -1,42 +1,47 @@
 # rigel-jd-collector
 
-JD collector service for querying JD Union data and writing raw product/price records into PostgreSQL.
+`rigel-jd-collector` 是当前系统的数据入口服务。
 
-## Language
+## 当前职责
 
-Go
+- 调用京东联盟 / OpenAPI 查询电脑硬件商品
+- 保存原始商品信息
+- 追加价格快照
+- 为后续价格清单整理提供原始数据
 
-## Current Stage
+## 不负责什么
 
-Phase 3 MVP, aligned with the `JD Union query -> raw sample storage` goal.
+- 不负责型号级价格清单整理
+- 不负责 AI 请求构建
+- 不负责推荐结果生成
+- 不负责页面展示
 
-## Intended Role
+## 当前输入
 
-- call JD Union/OpenAPI search interfaces with canonical-model-oriented keywords
-- store raw product records
-- append daily price snapshots
-- provide enough data for canonical model aggregation in `rigel-build-engine`
-- keep collector responsibility limited to query and persistence
+- 关键词
+- 类别
+- 查询限制参数
 
-## Implemented
+## 当前输出
 
-- replaceable JD Union client adapter interface
-- local mock adapter for development before real JD Union credentials are available
-- PostgreSQL persistence for `products`, `price_snapshots`, and `jobs`
-- basic dedupe through `products(source_platform, external_id)` upsert
+- 写入 `products`
+- 写入 `price_snapshots`
+- 写入 `jobs`
+- 提供原始商品查询接口
 
-## Routes
+## 当前接口
 
 - `GET /healthz`
 - `POST /api/v1/collect/search`
 - `GET /api/v1/products`
 
-## Notes
+## 当前目标
 
-- Current scope assumes JD data should come from JD Union/OpenAPI rather than browser scraping.
-- The goal is reliable daily price sampling and storage.
+当前模块的目标很明确：
+
+`京东联盟搜索 -> 原始商品入库 -> 原始价格入库`
 
 ## TODO / MOCK
 
-- TODO: wire a verified JD Union client once official credentials are available
-- MOCK: local mock adapter remains in place until JD Union access is configured
+- `TODO`: 接入经过验证的真实京东联盟客户端
+- `MOCK`: 当前开发阶段可继续保留本地 mock adapter 作为过渡
