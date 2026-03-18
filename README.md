@@ -96,6 +96,112 @@
 - `POST /api/v1/collect/search`
 - `GET /api/v1/products`
 
+## 接口示例
+
+### 1. 健康检查
+
+请求：
+
+```bash
+curl http://localhost:18081/healthz
+```
+
+响应示例：
+
+```json
+{
+  "status": "ok",
+  "service": "rigel-jd-collector",
+  "mode": "union"
+}
+```
+
+### 2. 触发一次采集
+
+请求：
+
+```bash
+curl -X POST http://localhost:18081/api/v1/collect/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "keyword": "RTX 4060",
+    "category": "GPU",
+    "brand": "NVIDIA",
+    "limit": 2,
+    "persist": true
+  }'
+```
+
+响应示例：
+
+```json
+{
+  "job_id": "job-1",
+  "mode": "mock",
+  "persisted": true,
+  "persisted_count": 2,
+  "products": [
+    {
+      "id": "1001001",
+      "source_platform": "jd",
+      "external_id": "1001001",
+      "sku_id": "1001001",
+      "title": "NVIDIA RTX 4060 8G 京东自营",
+      "url": "https://item.jd.com/1001001.html",
+      "image_url": "https://img.example.com/4060.jpg",
+      "shop_name": "京东自营",
+      "shop_type": "self_operated",
+      "price": 2399,
+      "currency": "CNY",
+      "availability": "in_stock",
+      "attributes": {
+        "category": "GPU"
+      }
+    }
+  ]
+}
+```
+
+说明：
+
+- `persist=true` 时会写入 `rigel_products` 和 `rigel_price_snapshots`
+- 当前 `mode` 可能是 `mock` 或 `union`，取决于运行配置
+
+### 3. 查询已采集商品
+
+请求：
+
+```bash
+curl "http://localhost:18081/api/v1/products?category=GPU&self_operated_only=true&real_only=true&limit=20"
+```
+
+响应示例：
+
+```json
+{
+  "count": 1,
+  "items": [
+    {
+      "id": "gpu-real",
+      "source_platform": "jd",
+      "title": "NVIDIA RTX 4060 京东自营",
+      "shop_type": "self_operated",
+      "price": 2399,
+      "availability": "in_stock",
+      "attributes": {
+        "category": "GPU"
+      }
+    }
+  ]
+}
+```
+
+说明：
+
+- `self_operated_only=true` 只保留京东自营
+- `real_only=true` 会过滤 mock 数据
+- `category` 当前常见值包括 `CPU`、`GPU`、`RAM`、`SSD`
+
 ## 当前目标
 
 当前模块的目标很明确：
