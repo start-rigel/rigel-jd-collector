@@ -137,7 +137,7 @@ curl -X POST http://localhost:18081/api/v1/collect/search \
 ```json
 {
   "job_id": "job-1",
-  "mode": "mock",
+  "mode": "union",
   "persisted": true,
   "persisted_count": 2,
   "products": [
@@ -165,7 +165,7 @@ curl -X POST http://localhost:18081/api/v1/collect/search \
 说明：
 
 - `persist=true` 时会写入 `rigel_products` 和 `rigel_price_snapshots`
-- 当前 `mode` 可能是 `mock` 或 `union`，取决于运行配置
+- 当前推荐运行模式是 `union`
 
 ### 3. 查询已采集商品
 
@@ -199,7 +199,7 @@ curl "http://localhost:18081/api/v1/products?category=GPU&self_operated_only=tru
 说明：
 
 - `self_operated_only=true` 只保留京东自营
-- `real_only=true` 会过滤 mock 数据
+- `real_only=true` 会过滤测试数据
 - `category` 当前常见值包括 `CPU`、`GPU`、`RAM`、`SSD`
 
 ## 当前目标
@@ -208,8 +208,7 @@ curl "http://localhost:18081/api/v1/products?category=GPU&self_operated_only=tru
 
 `型号词库 -> 京东联盟搜索 -> 原始商品入库 -> 原始价格入库`
 
-## TODO / MOCK
+## TODO
 
 - `TODO`: 接入经过验证的真实京东联盟客户端
 - `TODO`: 把联盟字段正式映射到本地 `rigel_` 表结构
-- `MOCK`: 当前开发阶段可继续保留本地 mock adapter 作为过渡
