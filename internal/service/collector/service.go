@@ -18,6 +18,8 @@ type Repository interface {
 	CreateJob(ctx context.Context, job model.Job) (model.Job, error)
 	UpdateJob(ctx context.Context, job model.Job) error
 	ListEnabledKeywordSeeds(ctx context.Context) ([]model.KeywordSeed, error)
+	GetCollectorScheduleConfig(ctx context.Context, serviceName string) (model.CollectorScheduleConfig, bool, error)
+	UpsertCollectorScheduleConfig(ctx context.Context, cfg model.CollectorScheduleConfig) (model.CollectorScheduleConfig, error)
 	UpsertProduct(ctx context.Context, product model.Product) (model.Product, error)
 	InsertPriceSnapshot(ctx context.Context, snapshot model.PriceSnapshot) (model.PriceSnapshot, error)
 	EnsurePart(ctx context.Context, part model.Part) (model.Part, error)
@@ -73,6 +75,13 @@ type ScheduledCollectionResult struct {
 	FailureCount      int      `json:"failure_count"`
 	PersistedProducts int      `json:"persisted_products"`
 	UpdatedSummaries  int      `json:"updated_summaries"`
+}
+
+type CollectorScheduleUpsertRequest struct {
+	Enabled                bool   `json:"enabled"`
+	ScheduleTime           string `json:"schedule_time"`
+	RequestIntervalSeconds int    `json:"request_interval_seconds"`
+	QueryLimit             int    `json:"query_limit"`
 }
 
 func New(repo Repository, client jdclient.Client, clock func() time.Time) *Service {
@@ -283,6 +292,24 @@ func (s *Service) ListProducts(ctx context.Context, filter ProductListFilter) ([
 	return s.repo.ListProducts(ctx, filter)
 }
 
+func (s *Service) GetCollectorScheduleConfig(ctx context.Context, serviceName string) (model.CollectorScheduleConfig, bool, error) {
+	return s.repo.GetCollectorScheduleConfig(ctx, serviceName)
+}
+
+func (s *Service) UpsertCollectorScheduleConfig(ctx context.Context, serviceName string, req CollectorScheduleUpsertRequest) (model.CollectorScheduleConfig, error) {
+	cfg := model.CollectorScheduleConfig{
+		ServiceName:            strings.TrimSpace(serviceName),
+		Enabled:                req.Enabled,
+		ScheduleTime:           strings.TrimSpace(req.ScheduleTime),
+		RequestIntervalSeconds: req.RequestIntervalSeconds,
+		QueryLimit:             req.QueryLimit,
+	}
+	if err := validateCollectorScheduleConfig(cfg); err != nil {
+		return model.CollectorScheduleConfig{}, err
+	}
+	return s.repo.UpsertCollectorScheduleConfig(ctx, cfg)
+}
+
 func (s *Service) persistSeedSummary(ctx context.Context, seed model.KeywordSeed, products []model.Product) error {
 	if len(products) == 0 {
 		return nil
@@ -426,6 +453,25 @@ func normalizedKey(category model.PartCategory, canonicalModel string) string {
 		return prefix
 	}
 	return prefix + "-" + slug
+}
+
+func validateCollectorScheduleConfig(cfg model.CollectorScheduleConfig) error {
+	if strings.TrimSpace(cfg.ServiceName) == "" {
+		return fmt.Errorf("service_name must not be empty")
+	}
+	if strings.TrimSpace(cfg.ScheduleTime) == "" {
+		return fmt.Errorf("schedule_time must not be empty")
+	}
+	if _, err := time.Parse("15:04", cfg.ScheduleTime); err != nil {
+		return fmt.Errorf("parse schedule_time %q: %w", cfg.ScheduleTime, err)
+	}
+	if cfg.RequestIntervalSeconds < 0 {
+		return fmt.Errorf("request_interval_seconds must be >= 0")
+	}
+	if cfg.QueryLimit <= 0 {
+		return fmt.Errorf("query_limit must be > 0")
+	}
+	return nil
 }
 
 func minPrice(prices []float64) float64 {

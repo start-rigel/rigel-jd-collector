@@ -19,6 +19,7 @@ type memoryRepo struct {
 	seeds     []model.KeywordSeed
 	mappings  []model.ProductPartMapping
 	summaries []model.PartMarketSummary
+	schedule  *model.CollectorScheduleConfig
 }
 
 func (r *memoryRepo) CreateJob(_ context.Context, job model.Job) (model.Job, error) {
@@ -28,6 +29,17 @@ func (r *memoryRepo) CreateJob(_ context.Context, job model.Job) (model.Job, err
 func (r *memoryRepo) UpdateJob(_ context.Context, _ model.Job) error { return nil }
 func (r *memoryRepo) ListEnabledKeywordSeeds(_ context.Context) ([]model.KeywordSeed, error) {
 	return r.seeds, nil
+}
+func (r *memoryRepo) GetCollectorScheduleConfig(_ context.Context, _ string) (model.CollectorScheduleConfig, bool, error) {
+	if r.schedule == nil {
+		return model.CollectorScheduleConfig{}, false, nil
+	}
+	return *r.schedule, true, nil
+}
+func (r *memoryRepo) UpsertCollectorScheduleConfig(_ context.Context, cfg model.CollectorScheduleConfig) (model.CollectorScheduleConfig, error) {
+	cfg.ID = "schedule-1"
+	r.schedule = &cfg
+	return cfg, nil
 }
 func (r *memoryRepo) UpsertProduct(_ context.Context, product model.Product) (model.Product, error) {
 	if product.ID == "" {
@@ -59,12 +71,33 @@ func (r *memoryRepo) ListProducts(_ context.Context, _ collectorservice.ProductL
 func TestHealthz(t *testing.T) {
 	repo := &memoryRepo{}
 	collector := collectorservice.New(repo, jdclient.NewMockClient(), nil)
-	application := New(config.Config{ServiceName: "test-service", JDCollectorMode: "mock", ScheduleEnabled: true, ScheduleTime: "03:00", RequestInterval: 2 * time.Second}, collector)
+	application := New(config.Config{ServiceName: "test-service", JDCollectorMode: "mock"}, collector)
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 	application.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+}
+
+func TestScheduleConfig(t *testing.T) {
+	repo := &memoryRepo{}
+	collector := collectorservice.New(repo, jdclient.NewMockClient(), nil)
+	application := New(config.Config{ServiceName: "test-service", JDCollectorMode: "mock"}, collector)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/schedule", nil)
+	rec := httptest.NewRecorder()
+	application.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := []byte(`{"enabled":true,"schedule_time":"03:00","request_interval_seconds":2,"query_limit":3}`)
+	req = httptest.NewRequest(http.MethodPut, "/api/v1/admin/schedule", bytes.NewReader(body))
+	rec = httptest.NewRecorder()
+	application.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

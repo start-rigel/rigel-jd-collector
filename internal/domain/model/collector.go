@@ -159,6 +159,18 @@ type PartMarketSummary struct {
 	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
+// CollectorScheduleConfig is the admin-managed runtime schedule for JD collection.
+type CollectorScheduleConfig struct {
+	ID                     ID        `json:"id"`
+	ServiceName            string    `json:"service_name"`
+	Enabled                bool      `json:"enabled"`
+	ScheduleTime           string    `json:"schedule_time"`
+	RequestIntervalSeconds int       `json:"request_interval_seconds"`
+	QueryLimit             int       `json:"query_limit"`
+	CreatedAt              time.Time `json:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at"`
+}
+
 // SearchQuery is the adapter input for JD search clients.
 type SearchQuery struct {
 	Keyword  string

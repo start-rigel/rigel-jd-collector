@@ -51,14 +51,7 @@ func main() {
 
 	collector := collectorservice.New(repo, client, time.Now)
 	go func() {
-		if err := collector.RunScheduleLoop(ctx, collectorservice.ScheduleConfig{
-			Enabled:         cfg.ScheduleEnabled,
-			RunAt:           cfg.ScheduleTime,
-			RunOnStartup:    cfg.RunOnStartup,
-			QueryLimit:      cfg.DefaultQueryLimit,
-			Persist:         true,
-			RequestInterval: cfg.RequestInterval,
-		}, cfg.JDCollectorMode); err != nil && !errors.Is(err, context.Canceled) {
+		if err := collector.RunScheduleLoop(ctx, cfg.ServiceName, cfg.JDCollectorMode); err != nil && !errors.Is(err, context.Canceled) {
 			log.Printf("jd collector schedule loop stopped: %v", err)
 		}
 	}()

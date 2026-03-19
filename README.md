@@ -5,8 +5,8 @@
 ## 当前职责
 
 - 读取已维护好的型号词库
-- 按配置时间定时调用京东联盟 / OpenAPI 查询电脑硬件商品
-- 支持配置每次接口请求的间隔
+- 根据后台配置的每日时间定时调用京东联盟 / OpenAPI 查询电脑硬件商品
+- 支持后台配置每次接口请求的间隔和单次查询条数
 - 保存原始商品信息
 - 追加价格快照
 - 整理标准型号对应的每日价格快照
@@ -95,29 +95,27 @@
 
 ## 调度与间隔配置
 
-当前服务支持通过配置文件控制：
+当前定时采集配置由后台管理，不再以 YAML 作为业务配置真源。
 
-- 是否启用每日定时采集
-- 每日执行时间，例如 `03:00`
-- 服务启动时是否先跑一轮
-- 每次关键词请求之间的等待间隔，例如 `2s`
-- 默认搜索条数限制
+当前规则：
 
-当前配置文件：
+- 没有调度配置时，服务不会自动启动定时采集
+- 配置存在但 `enabled=false` 时，服务不会自动启动定时采集
+- 后台可配置：
+  - 是否启用
+  - 每日执行时间，例如 `03:00`
+  - 每次关键词请求间隔，单位秒
+  - 单次查询条数限制
 
-- `configs/config.yaml`
+当前配置存储在：
 
-关键配置项：
-
-- `schedule_enabled`
-- `schedule_time`
-- `run_on_startup`
-- `request_interval`
-- `default_query_limit`
+- `rigel_collector_schedules`
 
 ## 当前接口
 
 - `GET /healthz`
+- `GET /api/v1/admin/schedule`
+- `PUT /api/v1/admin/schedule`
 - `POST /api/v1/collect/search`
 - `GET /api/v1/products`
 
@@ -137,14 +135,50 @@ curl http://localhost:18081/healthz
 {
   "status": "ok",
   "service": "rigel-jd-collector",
-  "mode": "union",
-  "schedule_enabled": true,
-  "schedule_time": "03:00",
-  "request_interval": "2s"
+  "mode": "union"
 }
 ```
 
-### 2. 触发一次采集
+### 2. 查询当前调度配置
+
+请求：
+
+```bash
+curl http://localhost:18081/api/v1/admin/schedule
+```
+
+响应示例：
+
+```json
+{
+  "configured": true,
+  "config": {
+    "id": "cfg-1",
+    "service_name": "rigel-jd-collector",
+    "enabled": true,
+    "schedule_time": "03:00",
+    "request_interval_seconds": 3,
+    "query_limit": 5
+  }
+}
+```
+
+### 3. 更新调度配置
+
+请求：
+
+```bash
+curl -X PUT http://localhost:18081/api/v1/admin/schedule \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "schedule_time": "03:00",
+    "request_interval_seconds": 3,
+    "query_limit": 5
+  }'
+```
+
+### 4. 触发一次采集
 
 请求：
 
@@ -195,7 +229,7 @@ curl -X POST http://localhost:18081/api/v1/collect/search \
 - `persist=true` 时会写入 `rigel_products` 和 `rigel_price_snapshots`
 - 当前推荐运行模式是 `union`
 
-### 3. 查询已采集商品
+### 5. 查询已采集商品
 
 请求：
 

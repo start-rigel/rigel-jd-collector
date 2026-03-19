@@ -7,54 +7,61 @@ import (
 	"time"
 )
 
-type ScheduleConfig struct {
-	Enabled         bool
-	RunAt           string
-	RunOnStartup    bool
-	QueryLimit      int
-	Persist         bool
-	RequestInterval time.Duration
-}
+const schedulePollInterval = 15 * time.Second
 
-func (s *Service) RunScheduleLoop(ctx context.Context, cfg ScheduleConfig, mode string) error {
-	if cfg.RunOnStartup {
-		if _, err := s.RunScheduledCollection(ctx, ScheduledCollectionRequest{
-			Persist:         cfg.Persist,
-			QueryLimit:      cfg.QueryLimit,
-			RequestInterval: cfg.RequestInterval,
-		}, mode); err != nil {
-			log.Printf("scheduled startup collection failed: %v", err)
-		}
-	}
-	if !cfg.Enabled {
-		<-ctx.Done()
-		return ctx.Err()
-	}
+func (s *Service) RunScheduleLoop(ctx context.Context, serviceName, mode string) error {
+	var activeSignature string
+	var nextRun time.Time
 
 	for {
-		nextRun, err := nextScheduledTime(s.clock().In(time.Local), cfg.RunAt)
+		cfg, exists, err := s.repo.GetCollectorScheduleConfig(ctx, serviceName)
 		if err != nil {
-			return err
+			log.Printf("load collector schedule config failed: %v", err)
+			if err := sleepWithContext(ctx, schedulePollInterval); err != nil {
+				return err
+			}
+			continue
 		}
+
+		if !exists || !cfg.Enabled {
+			activeSignature = ""
+			nextRun = time.Time{}
+			if err := sleepWithContext(ctx, schedulePollInterval); err != nil {
+				return err
+			}
+			continue
+		}
+
+		signature := fmt.Sprintf("%s|%t|%s|%d|%d", cfg.ServiceName, cfg.Enabled, cfg.ScheduleTime, cfg.RequestIntervalSeconds, cfg.QueryLimit)
+		now := s.clock().In(time.Local)
+		if signature != activeSignature || nextRun.IsZero() {
+			scheduled, err := nextScheduledTime(now, cfg.ScheduleTime)
+			if err != nil {
+				return err
+			}
+			activeSignature = signature
+			nextRun = scheduled
+		}
+
 		waitDuration := time.Until(nextRun)
-		if waitDuration < 0 {
-			waitDuration = 0
+		if waitDuration > schedulePollInterval {
+			waitDuration = schedulePollInterval
 		}
-		timer := time.NewTimer(waitDuration)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-		case <-timer.C:
+		if waitDuration > 0 {
+			if err := sleepWithContext(ctx, waitDuration); err != nil {
+				return err
+			}
+			continue
 		}
 
 		if _, err := s.RunScheduledCollection(ctx, ScheduledCollectionRequest{
-			Persist:         cfg.Persist,
+			Persist:         true,
 			QueryLimit:      cfg.QueryLimit,
-			RequestInterval: cfg.RequestInterval,
+			RequestInterval: time.Duration(cfg.RequestIntervalSeconds) * time.Second,
 		}, mode); err != nil {
 			log.Printf("scheduled daily collection failed: %v", err)
 		}
+		nextRun = nextRun.Add(24 * time.Hour)
 	}
 }
 

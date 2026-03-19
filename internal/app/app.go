@@ -24,6 +24,7 @@ func New(cfg config.Config, collector *collectorservice.Service) *App {
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", a.handleHealth)
+	mux.HandleFunc("/api/v1/admin/schedule", a.handleScheduleConfig)
 	mux.HandleFunc("/api/v1/collect/search", a.handleCollectSearch)
 	mux.HandleFunc("/api/v1/products", a.handleListProducts)
 	mux.HandleFunc("/", a.handleIndex)
@@ -32,28 +33,63 @@ func (a *App) Handler() http.Handler {
 
 func (a *App) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":           "ok",
-		"service":          a.cfg.ServiceName,
-		"mode":             a.cfg.JDCollectorMode,
-		"schedule_enabled": a.cfg.ScheduleEnabled,
-		"schedule_time":    a.cfg.ScheduleTime,
-		"request_interval": a.cfg.RequestInterval.String(),
+		"status":  "ok",
+		"service": a.cfg.ServiceName,
+		"mode":    a.cfg.JDCollectorMode,
 	})
 }
 
 func (a *App) handleIndex(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"service":          a.cfg.ServiceName,
-		"mode":             a.cfg.JDCollectorMode,
-		"schedule_enabled": a.cfg.ScheduleEnabled,
-		"schedule_time":    a.cfg.ScheduleTime,
-		"request_interval": a.cfg.RequestInterval.String(),
+		"service": a.cfg.ServiceName,
+		"mode":    a.cfg.JDCollectorMode,
 		"routes": []string{
 			"GET /healthz",
+			"GET /api/v1/admin/schedule",
+			"PUT /api/v1/admin/schedule",
 			"POST /api/v1/collect/search",
 			"GET /api/v1/products",
 		},
 	})
+}
+
+func (a *App) handleScheduleConfig(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		cfg, exists, err := a.collector.GetCollectorScheduleConfig(r.Context(), a.cfg.ServiceName)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if !exists {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"configured":   false,
+				"service_name": a.cfg.ServiceName,
+			})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"configured": true,
+			"config":     cfg,
+		})
+	case http.MethodPut:
+		var req collectorservice.CollectorScheduleUpsertRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		cfg, err := a.collector.UpsertCollectorScheduleConfig(r.Context(), a.cfg.ServiceName, req)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"configured": true,
+			"config":     cfg,
+		})
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
 }
 
 func (a *App) handleCollectSearch(w http.ResponseWriter, r *http.Request) {

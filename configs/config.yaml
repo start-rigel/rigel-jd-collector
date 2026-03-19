@@ -4,11 +4,6 @@ log_level: debug
 postgres_dsn: postgres://rigel:rigel@postgres:5432/rigel?sslmode=disable
 redis_addr: redis:6379
 jd_collector_mode: union
-schedule_enabled: true
-schedule_time: "03:00"
-run_on_startup: false
-request_interval: 2s
-default_query_limit: 3
 read_timeout: 5s
 write_timeout: 2m
 idle_timeout: 30s

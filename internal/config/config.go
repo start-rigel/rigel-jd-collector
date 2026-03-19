@@ -12,37 +12,27 @@ import (
 
 // Config contains the runtime contract for the JD collector service.
 type Config struct {
-	ServiceName       string        `yaml:"service_name"`
-	HTTPPort          string        `yaml:"http_port"`
-	LogLevel          string        `yaml:"log_level"`
-	PostgresDSN       string        `yaml:"postgres_dsn"`
-	RedisAddr         string        `yaml:"redis_addr"`
-	JDCollectorMode   string        `yaml:"jd_collector_mode"`
-	ScheduleEnabled   bool          `yaml:"schedule_enabled"`
-	ScheduleTime      string        `yaml:"schedule_time"`
-	RunOnStartup      bool          `yaml:"run_on_startup"`
-	RequestInterval   time.Duration `yaml:"-"`
-	DefaultQueryLimit int           `yaml:"default_query_limit"`
-	ReadTimeout       time.Duration `yaml:"-"`
-	WriteTimeout      time.Duration `yaml:"-"`
-	IdleTimeout       time.Duration `yaml:"-"`
+	ServiceName     string        `yaml:"service_name"`
+	HTTPPort        string        `yaml:"http_port"`
+	LogLevel        string        `yaml:"log_level"`
+	PostgresDSN     string        `yaml:"postgres_dsn"`
+	RedisAddr       string        `yaml:"redis_addr"`
+	JDCollectorMode string        `yaml:"jd_collector_mode"`
+	ReadTimeout     time.Duration `yaml:"-"`
+	WriteTimeout    time.Duration `yaml:"-"`
+	IdleTimeout     time.Duration `yaml:"-"`
 }
 
 type fileConfig struct {
-	ServiceName       string `yaml:"service_name"`
-	HTTPPort          string `yaml:"http_port"`
-	LogLevel          string `yaml:"log_level"`
-	PostgresDSN       string `yaml:"postgres_dsn"`
-	RedisAddr         string `yaml:"redis_addr"`
-	JDCollectorMode   string `yaml:"jd_collector_mode"`
-	ScheduleEnabled   *bool  `yaml:"schedule_enabled"`
-	ScheduleTime      string `yaml:"schedule_time"`
-	RunOnStartup      bool   `yaml:"run_on_startup"`
-	RequestInterval   string `yaml:"request_interval"`
-	DefaultQueryLimit int    `yaml:"default_query_limit"`
-	ReadTimeout       string `yaml:"read_timeout"`
-	WriteTimeout      string `yaml:"write_timeout"`
-	IdleTimeout       string `yaml:"idle_timeout"`
+	ServiceName     string `yaml:"service_name"`
+	HTTPPort        string `yaml:"http_port"`
+	LogLevel        string `yaml:"log_level"`
+	PostgresDSN     string `yaml:"postgres_dsn"`
+	RedisAddr       string `yaml:"redis_addr"`
+	JDCollectorMode string `yaml:"jd_collector_mode"`
+	ReadTimeout     string `yaml:"read_timeout"`
+	WriteTimeout    string `yaml:"write_timeout"`
+	IdleTimeout     string `yaml:"idle_timeout"`
 }
 
 func DefaultPath() string {
@@ -75,26 +65,16 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	requestInterval, err := parseDuration(raw.RequestInterval, 2*time.Second)
-	if err != nil {
-		return Config{}, err
-	}
-
 	cfg := Config{
-		ServiceName:       blankFallback(raw.ServiceName, "rigel-jd-collector"),
-		HTTPPort:          blankFallback(raw.HTTPPort, "18081"),
-		LogLevel:          blankFallback(raw.LogLevel, "info"),
-		PostgresDSN:       blankFallback(raw.PostgresDSN, "postgres://rigel:rigel@postgres:5432/rigel?sslmode=disable"),
-		RedisAddr:         blankFallback(raw.RedisAddr, "redis:6379"),
-		JDCollectorMode:   blankFallback(raw.JDCollectorMode, "union"),
-		ScheduleEnabled:   boolFallback(raw.ScheduleEnabled, true),
-		ScheduleTime:      blankFallback(raw.ScheduleTime, "03:00"),
-		RunOnStartup:      raw.RunOnStartup,
-		RequestInterval:   requestInterval,
-		DefaultQueryLimit: intFallback(raw.DefaultQueryLimit, 3),
-		ReadTimeout:       readTimeout,
-		WriteTimeout:      writeTimeout,
-		IdleTimeout:       idleTimeout,
+		ServiceName:     blankFallback(raw.ServiceName, "rigel-jd-collector"),
+		HTTPPort:        blankFallback(raw.HTTPPort, "18081"),
+		LogLevel:        blankFallback(raw.LogLevel, "info"),
+		PostgresDSN:     blankFallback(raw.PostgresDSN, "postgres://rigel:rigel@postgres:5432/rigel?sslmode=disable"),
+		RedisAddr:       blankFallback(raw.RedisAddr, "redis:6379"),
+		JDCollectorMode: blankFallback(raw.JDCollectorMode, "union"),
+		ReadTimeout:     readTimeout,
+		WriteTimeout:    writeTimeout,
+		IdleTimeout:     idleTimeout,
 	}
 
 	if cfg.HTTPPort == "" {
@@ -102,9 +82,6 @@ func Load(path string) (Config, error) {
 	}
 	if cfg.PostgresDSN == "" {
 		return Config{}, fmt.Errorf("postgres_dsn must not be empty")
-	}
-	if err := validateScheduleTime(cfg.ScheduleTime); err != nil {
-		return Config{}, err
 	}
 	return cfg, nil
 }
@@ -120,33 +97,9 @@ func parseDuration(value string, fallback time.Duration) (time.Duration, error) 
 	return parsed, nil
 }
 
-func validateScheduleTime(value string) error {
-	if strings.TrimSpace(value) == "" {
-		return fmt.Errorf("schedule_time must not be empty")
-	}
-	if _, err := time.Parse("15:04", value); err != nil {
-		return fmt.Errorf("parse schedule_time %q: %w", value, err)
-	}
-	return nil
-}
-
 func blankFallback(value, fallback string) string {
 	if strings.TrimSpace(value) == "" {
 		return fallback
 	}
 	return value
-}
-
-func intFallback(value, fallback int) int {
-	if value <= 0 {
-		return fallback
-	}
-	return value
-}
-
-func boolFallback(value *bool, fallback bool) bool {
-	if value == nil {
-		return fallback
-	}
-	return *value
 }

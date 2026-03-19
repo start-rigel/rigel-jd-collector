@@ -158,6 +158,57 @@ ORDER BY priority DESC, category ASC, keyword ASC`
 	return seeds, nil
 }
 
+func (r *Repository) GetCollectorScheduleConfig(ctx context.Context, serviceName string) (model.CollectorScheduleConfig, bool, error) {
+	query := `
+SELECT id, service_name, enabled, schedule_time, request_interval_seconds, query_limit, created_at, updated_at
+FROM rigel_collector_schedules
+WHERE service_name = $1`
+
+	var cfg model.CollectorScheduleConfig
+	if err := r.db.QueryRowContext(ctx, query, serviceName).Scan(
+		&cfg.ID,
+		&cfg.ServiceName,
+		&cfg.Enabled,
+		&cfg.ScheduleTime,
+		&cfg.RequestIntervalSeconds,
+		&cfg.QueryLimit,
+		&cfg.CreatedAt,
+		&cfg.UpdatedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return model.CollectorScheduleConfig{}, false, nil
+		}
+		return model.CollectorScheduleConfig{}, false, fmt.Errorf("get collector schedule config: %w", err)
+	}
+	return cfg, true, nil
+}
+
+func (r *Repository) UpsertCollectorScheduleConfig(ctx context.Context, cfg model.CollectorScheduleConfig) (model.CollectorScheduleConfig, error) {
+	query := `
+INSERT INTO rigel_collector_schedules (service_name, enabled, schedule_time, request_interval_seconds, query_limit)
+VALUES ($1,$2,$3,$4,$5)
+ON CONFLICT (service_name)
+DO UPDATE SET enabled = EXCLUDED.enabled,
+              schedule_time = EXCLUDED.schedule_time,
+              request_interval_seconds = EXCLUDED.request_interval_seconds,
+              query_limit = EXCLUDED.query_limit,
+              updated_at = NOW()
+RETURNING id, created_at, updated_at`
+
+	if err := r.db.QueryRowContext(
+		ctx,
+		query,
+		cfg.ServiceName,
+		cfg.Enabled,
+		cfg.ScheduleTime,
+		cfg.RequestIntervalSeconds,
+		cfg.QueryLimit,
+	).Scan(&cfg.ID, &cfg.CreatedAt, &cfg.UpdatedAt); err != nil {
+		return model.CollectorScheduleConfig{}, fmt.Errorf("upsert collector schedule config: %w", err)
+	}
+	return cfg, nil
+}
+
 func (r *Repository) UpsertProduct(ctx context.Context, product model.Product) (model.Product, error) {
 	attributes, err := marshalJSON(product.Attributes)
 	if err != nil {
