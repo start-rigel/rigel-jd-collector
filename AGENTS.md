@@ -20,3 +20,9 @@ When working in this repository:
 2. Treat `rigel-core` as the source of truth for workspace-level documentation.
 3. Use this repository's local README and code layout only as module-specific supplements.
 4. If a local module document conflicts with `rigel-core`, pause and reconcile instead of guessing.
+
+## Security Supplement
+
+1. `rigel-jd-collector` 当前按内网服务设计，不作为默认公网入口。
+2. 后台调度配置、采集触发和原始商品查询能力如果要扩大暴露范围，必须先同步更新共享安全文档。
+3. 京东联盟密钥、签名参数和后续返佣相关私密字段，禁止写入仓库、日志或公开接口示例。
