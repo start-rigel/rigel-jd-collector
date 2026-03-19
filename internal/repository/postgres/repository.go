@@ -49,7 +49,7 @@ func (r *Repository) CreateJob(ctx context.Context, job model.Job) (model.Job, e
 	}
 
 	query := `
-INSERT INTO jobs (job_type, status, source_platform, payload, result, scheduled_at, started_at, finished_at, retry_count, error_message)
+INSERT INTO rigel_jobs (job_type, status, source_platform, payload, result, scheduled_at, started_at, finished_at, retry_count, error_message)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING id, created_at, updated_at`
 
@@ -85,7 +85,7 @@ func (r *Repository) UpdateJob(ctx context.Context, job model.Job) error {
 	}
 
 	query := `
-UPDATE jobs
+UPDATE rigel_jobs
 SET status = $2,
     payload = $3,
     result = $4,
@@ -123,7 +123,7 @@ func (r *Repository) UpsertProduct(ctx context.Context, product model.Product) (
 	}
 
 	query := `
-INSERT INTO products (
+INSERT INTO rigel_products (
     source_platform, external_id, sku_id, title, subtitle, url, image_url,
     shop_name, shop_type, seller_name, region, price, currency, availability,
     attributes, raw_payload, first_seen_at, last_seen_at
@@ -185,7 +185,7 @@ func (r *Repository) InsertPriceSnapshot(ctx context.Context, snapshot model.Pri
 	}
 
 	query := `
-INSERT INTO price_snapshots (product_id, source_platform, price, in_stock, captured_at, metadata)
+INSERT INTO rigel_price_snapshots (product_id, source_platform, price, in_stock, captured_at, metadata)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id`
 
@@ -223,7 +223,7 @@ func (r *Repository) ListProducts(ctx context.Context, filter collector.ProductL
 SELECT id, source_platform::text, external_id, COALESCE(sku_id, ''), title, COALESCE(subtitle, ''), url,
        COALESCE(image_url, ''), COALESCE(shop_name, ''), shop_type::text, COALESCE(seller_name, ''), COALESCE(region, ''),
        price, currency, availability, attributes, raw_payload, first_seen_at, last_seen_at, created_at, updated_at
-FROM products
+FROM rigel_products
 WHERE source_platform = 'jd'
   AND ($1 = '' OR title ILIKE '%' || $1 || '%' OR external_id ILIKE '%' || $1 || '%')
   AND ($2 = '' OR COALESCE(attributes->>'category', '') = $2)
