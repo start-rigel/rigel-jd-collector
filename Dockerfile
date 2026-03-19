@@ -5,11 +5,13 @@ ENV GOSUMDB=sum.golang.google.cn
 COPY go.mod ./
 COPY go.sum ./
 COPY cmd ./cmd
+COPY configs ./configs
 COPY internal ./internal
 RUN go build -o /rigel-service ./cmd/server
 
 FROM alpine:3.20
 WORKDIR /app
+COPY --from=builder /app/configs ./configs
 COPY --from=builder /rigel-service /usr/local/bin/rigel-service
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/rigel-service"]

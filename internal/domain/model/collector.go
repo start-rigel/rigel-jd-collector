@@ -12,6 +12,10 @@ type JobStatus string
 
 type JobType string
 
+type PartCategory string
+
+type MappingStatus string
+
 const (
 	PlatformJD SourcePlatform = "jd"
 )
@@ -25,12 +29,66 @@ const (
 )
 
 const (
-	JobTypeJDCollect JobType   = "jd_collect"
-	JobQueued        JobStatus = "queued"
-	JobRunning       JobStatus = "running"
-	JobSucceeded     JobStatus = "succeeded"
-	JobFailed        JobStatus = "failed"
+	CategoryCPU    PartCategory = "CPU"
+	CategoryMB     PartCategory = "MB"
+	CategoryGPU    PartCategory = "GPU"
+	CategoryRAM    PartCategory = "RAM"
+	CategorySSD    PartCategory = "SSD"
+	CategoryHDD    PartCategory = "HDD"
+	CategoryPSU    PartCategory = "PSU"
+	CategoryCase   PartCategory = "CASE"
+	CategoryCooler PartCategory = "COOLER"
 )
+
+const (
+	JobTypeJDCollect     JobType   = "jd_collect"
+	JobTypeMarketSummary JobType   = "market_summary"
+	JobQueued            JobStatus = "queued"
+	JobRunning           JobStatus = "running"
+	JobSucceeded         JobStatus = "succeeded"
+	JobFailed            JobStatus = "failed"
+)
+
+const (
+	MappingStatusPending      MappingStatus = "pending"
+	MappingStatusMapped       MappingStatus = "mapped"
+	MappingStatusRejected     MappingStatus = "rejected"
+	MappingStatusManualReview MappingStatus = "manual_review"
+)
+
+// KeywordSeed is the configured search seed maintained in the admin UI.
+type KeywordSeed struct {
+	ID             ID           `json:"id"`
+	Category       PartCategory `json:"category"`
+	Keyword        string       `json:"keyword"`
+	CanonicalModel string       `json:"canonical_model"`
+	Brand          string       `json:"brand"`
+	Aliases        []string     `json:"aliases,omitempty"`
+	Priority       int          `json:"priority"`
+	Enabled        bool         `json:"enabled"`
+	Notes          string       `json:"notes,omitempty"`
+	CreatedAt      time.Time    `json:"created_at"`
+	UpdatedAt      time.Time    `json:"updated_at"`
+}
+
+// Part is the canonical hardware entry tied to a keyword seed.
+type Part struct {
+	ID               ID           `json:"id"`
+	Category         PartCategory `json:"category"`
+	Brand            string       `json:"brand"`
+	Series           string       `json:"series,omitempty"`
+	Model            string       `json:"model"`
+	DisplayName      string       `json:"display_name"`
+	NormalizedKey    string       `json:"normalized_key"`
+	Generation       string       `json:"generation,omitempty"`
+	MSRP             float64      `json:"msrp,omitempty"`
+	ReleaseYear      int          `json:"release_year,omitempty"`
+	LifecycleStatus  string       `json:"lifecycle_status"`
+	SourceConfidence float64      `json:"source_confidence"`
+	AliasKeywords    []string     `json:"alias_keywords,omitempty"`
+	CreatedAt        time.Time    `json:"created_at"`
+	UpdatedAt        time.Time    `json:"updated_at"`
+}
 
 // Product is the raw JD product record captured by the collector.
 type Product struct {
@@ -66,6 +124,39 @@ type PriceSnapshot struct {
 	InStock        bool           `json:"in_stock"`
 	CapturedAt     time.Time      `json:"captured_at"`
 	Metadata       map[string]any `json:"metadata,omitempty"`
+}
+
+// ProductPartMapping links a raw product to a canonical part entry.
+type ProductPartMapping struct {
+	ID                   ID            `json:"id"`
+	ProductID            ID            `json:"product_id"`
+	PartID               ID            `json:"part_id"`
+	KeywordSeedID        ID            `json:"keyword_seed_id"`
+	MappingStatus        MappingStatus `json:"mapping_status"`
+	MatchConfidence      float64       `json:"match_confidence"`
+	MatchedBy            string        `json:"matched_by"`
+	CandidateDisplayName string        `json:"candidate_display_name,omitempty"`
+	Reason               string        `json:"reason,omitempty"`
+	CreatedAt            time.Time     `json:"created_at"`
+	UpdatedAt            time.Time     `json:"updated_at"`
+}
+
+// PartMarketSummary stores one model-level daily price snapshot per source.
+type PartMarketSummary struct {
+	ID              ID             `json:"id"`
+	PartID          ID             `json:"part_id"`
+	SourcePlatform  SourcePlatform `json:"source_platform"`
+	SnapshotDate    time.Time      `json:"snapshot_date"`
+	LatestPrice     float64        `json:"latest_price"`
+	MinPrice        float64        `json:"min_price"`
+	MaxPrice        float64        `json:"max_price"`
+	MedianPrice     float64        `json:"median_price"`
+	P25Price        float64        `json:"p25_price"`
+	P75Price        float64        `json:"p75_price"`
+	SampleCount     int            `json:"sample_count"`
+	LastCollectedAt *time.Time     `json:"last_collected_at,omitempty"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
 // SearchQuery is the adapter input for JD search clients.

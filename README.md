@@ -5,14 +5,14 @@
 ## 当前职责
 
 - 读取已维护好的型号词库
-- 调用京东联盟 / OpenAPI 查询电脑硬件商品
+- 按配置时间定时调用京东联盟 / OpenAPI 查询电脑硬件商品
+- 支持配置每次接口请求的间隔
 - 保存原始商品信息
 - 追加价格快照
-- 为后续价格清单整理提供原始数据
+- 整理标准型号对应的每日价格快照
 
 ## 不负责什么
 
-- 不负责型号级价格清单整理
 - 不负责 AI 请求构建
 - 不负责推荐结果生成
 - 不负责页面展示
@@ -87,8 +87,33 @@
 
 - 写入 `rigel_products`
 - 写入 `rigel_price_snapshots`
+- 写入 `rigel_parts`
+- 写入 `rigel_product_part_mapping`
+- 写入 `rigel_part_market_summary`
 - 写入 `rigel_jobs`
 - 提供原始商品查询接口
+
+## 调度与间隔配置
+
+当前服务支持通过配置文件控制：
+
+- 是否启用每日定时采集
+- 每日执行时间，例如 `03:00`
+- 服务启动时是否先跑一轮
+- 每次关键词请求之间的等待间隔，例如 `2s`
+- 默认搜索条数限制
+
+当前配置文件：
+
+- `configs/config.yaml`
+
+关键配置项：
+
+- `schedule_enabled`
+- `schedule_time`
+- `run_on_startup`
+- `request_interval`
+- `default_query_limit`
 
 ## 当前接口
 
@@ -112,7 +137,10 @@ curl http://localhost:18081/healthz
 {
   "status": "ok",
   "service": "rigel-jd-collector",
-  "mode": "union"
+  "mode": "union",
+  "schedule_enabled": true,
+  "schedule_time": "03:00",
+  "request_interval": "2s"
 }
 ```
 
@@ -206,9 +234,9 @@ curl "http://localhost:18081/api/v1/products?category=GPU&self_operated_only=tru
 
 当前模块的目标很明确：
 
-`型号词库 -> 京东联盟搜索 -> 原始商品入库 -> 原始价格入库`
+`型号词库 -> 京东联盟搜索 -> 原始商品入库 -> 原始价格入库 -> 每日型号价格快照`
 
 ## TODO
 
 - `TODO`: 接入经过验证的真实京东联盟客户端
-- `TODO`: 把联盟字段正式映射到本地 `rigel_` 表结构
+- `TODO`: 将每日调度任务接到生产环境调度体系

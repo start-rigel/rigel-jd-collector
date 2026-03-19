@@ -31,17 +31,23 @@ func (a *App) Handler() http.Handler {
 }
 
 func (a *App) handleHealth(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{
-		"status":  "ok",
-		"service": a.cfg.ServiceName,
-		"mode":    a.cfg.JDCollectorMode,
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":           "ok",
+		"service":          a.cfg.ServiceName,
+		"mode":             a.cfg.JDCollectorMode,
+		"schedule_enabled": a.cfg.ScheduleEnabled,
+		"schedule_time":    a.cfg.ScheduleTime,
+		"request_interval": a.cfg.RequestInterval.String(),
 	})
 }
 
 func (a *App) handleIndex(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"service": a.cfg.ServiceName,
-		"mode":    a.cfg.JDCollectorMode,
+		"service":          a.cfg.ServiceName,
+		"mode":             a.cfg.JDCollectorMode,
+		"schedule_enabled": a.cfg.ScheduleEnabled,
+		"schedule_time":    a.cfg.ScheduleTime,
+		"request_interval": a.cfg.RequestInterval.String(),
 		"routes": []string{
 			"GET /healthz",
 			"POST /api/v1/collect/search",

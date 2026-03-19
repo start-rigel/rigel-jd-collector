@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/rigel-labs/rigel-jd-collector/internal/adapter/jdclient"
 	"github.com/rigel-labs/rigel-jd-collector/internal/config"
@@ -14,7 +15,10 @@ import (
 )
 
 type memoryRepo struct {
-	products []model.Product
+	products  []model.Product
+	seeds     []model.KeywordSeed
+	mappings  []model.ProductPartMapping
+	summaries []model.PartMarketSummary
 }
 
 func (r *memoryRepo) CreateJob(_ context.Context, job model.Job) (model.Job, error) {
@@ -22,6 +26,9 @@ func (r *memoryRepo) CreateJob(_ context.Context, job model.Job) (model.Job, err
 	return job, nil
 }
 func (r *memoryRepo) UpdateJob(_ context.Context, _ model.Job) error { return nil }
+func (r *memoryRepo) ListEnabledKeywordSeeds(_ context.Context) ([]model.KeywordSeed, error) {
+	return r.seeds, nil
+}
 func (r *memoryRepo) UpsertProduct(_ context.Context, product model.Product) (model.Product, error) {
 	if product.ID == "" {
 		product.ID = model.ID(product.ExternalID)
@@ -33,6 +40,18 @@ func (r *memoryRepo) InsertPriceSnapshot(_ context.Context, snapshot model.Price
 	snapshot.ID = "snapshot-1"
 	return snapshot, nil
 }
+func (r *memoryRepo) EnsurePart(_ context.Context, part model.Part) (model.Part, error) {
+	part.ID = model.ID(part.NormalizedKey)
+	return part, nil
+}
+func (r *memoryRepo) UpsertProductMapping(_ context.Context, mapping model.ProductPartMapping) error {
+	r.mappings = append(r.mappings, mapping)
+	return nil
+}
+func (r *memoryRepo) UpsertPartMarketSummary(_ context.Context, summary model.PartMarketSummary) error {
+	r.summaries = append(r.summaries, summary)
+	return nil
+}
 func (r *memoryRepo) ListProducts(_ context.Context, _ collectorservice.ProductListFilter) ([]model.Product, error) {
 	return r.products, nil
 }
@@ -40,7 +59,7 @@ func (r *memoryRepo) ListProducts(_ context.Context, _ collectorservice.ProductL
 func TestHealthz(t *testing.T) {
 	repo := &memoryRepo{}
 	collector := collectorservice.New(repo, jdclient.NewMockClient(), nil)
-	application := New(config.Config{ServiceName: "test-service", JDCollectorMode: "mock"}, collector)
+	application := New(config.Config{ServiceName: "test-service", JDCollectorMode: "mock", ScheduleEnabled: true, ScheduleTime: "03:00", RequestInterval: 2 * time.Second}, collector)
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 	application.Handler().ServeHTTP(rec, req)

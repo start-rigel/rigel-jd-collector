@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"log"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -17,7 +19,14 @@ import (
 )
 
 func main() {
-	cfg, err := config.Load()
+	configPathFlag := flag.String("config", "", "path to YAML config file")
+	flag.Parse()
+
+	configPath := *configPathFlag
+	if configPath == "" {
+		configPath = os.Getenv("RIGEL_CONFIG_PATH")
+	}
+	cfg, err := config.Load(configPath)
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}
@@ -41,6 +50,19 @@ func main() {
 	}
 
 	collector := collectorservice.New(repo, client, time.Now)
+	go func() {
+		if err := collector.RunScheduleLoop(ctx, collectorservice.ScheduleConfig{
+			Enabled:         cfg.ScheduleEnabled,
+			RunAt:           cfg.ScheduleTime,
+			RunOnStartup:    cfg.RunOnStartup,
+			QueryLimit:      cfg.DefaultQueryLimit,
+			Persist:         true,
+			RequestInterval: cfg.RequestInterval,
+		}, cfg.JDCollectorMode); err != nil && !errors.Is(err, context.Canceled) {
+			log.Printf("jd collector schedule loop stopped: %v", err)
+		}
+	}()
+
 	application := app.New(cfg, collector)
 	server := &http.Server{
 		Addr:         ":" + cfg.HTTPPort,
